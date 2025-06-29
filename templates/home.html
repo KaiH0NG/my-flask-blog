@@ -1,0 +1,59 @@
+{% extends "layout.html" %}
+{% block content %}
+    <div class="hero-section text-center text-white p-5 mb-4 rounded-3">
+        <div class="container-fluid py-5">
+            <h1 class="display-4 fw-bold">{{ site_config.hero_title }}</h1>
+            <p class="fs-4 col-md-8 mx-auto">{{ site_config.hero_subtitle }}</p>
+        </div>
+    </div>
+    <style>
+        .hero-section {
+            background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)),
+            {% if site_config.hero_image %}
+                url('{{ url_for('uploaded_file', filename=site_config.hero_image) }}');
+            {% else %}
+                url('https://images.unsplash.com/photo-1457369804613-52c61a468e7d?q=80&w=2070');
+            {% endif %}
+            background-size: cover;
+            background-position: center;
+        }
+    </style>
+    <h3 class="pb-4 mb-4 fst-italic border-bottom">{{ title }}</h3>
+    {% for post in posts %}
+        <article class="blog-post card mb-4" data-aos="fade-up">
+            <div class="card-body">
+                <h2 class="card-title">{{ post.title }}</h2>
+                <p class="blog-post-meta">
+                    <i class="bi bi-calendar-event"></i> {{ post.date_posted.strftime('%Y年%m月%d日') }} by
+                    <a href="#"><i class="bi bi-person"></i> {{ post.author }}</a>
+                </p>
+                <p class="card-text">{{ post.content[:200] | striptags }}...</p>
+                <a href="{{ url_for('post', post_id=post.id) }}" class="btn btn-primary">阅读全文 &rarr;</a>
+            </div>
+             {% if post.get_tags_list() %}
+                <div class="card-footer text-body-secondary">
+                    {% for tag in post.get_tags_list() %}
+                        <a href="{{ url_for('show_tag', tag_name=tag) }}" class="badge text-bg-secondary text-decoration-none">{{ tag }}</a>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </article>
+    {% else %}
+        <p>这里还没有文章哦，快去后台发布第一篇吧！</p>
+    {% endfor %}
+    <nav aria-label="Page navigation">
+      <ul class="pagination justify-content-center">
+        {% if pagination %}
+          {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+            {% if page_num %}
+              <li class="page-item {% if pagination.page == page_num %}active{% endif %}">
+                <a class="page-link" href="{{ url_for(request.endpoint, page=page_num, tag_name=request.view_args.get('tag_name')) }}">{{ page_num }}</a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">…</span></li>
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+      </ul>
+    </nav>
+{% endblock content %}

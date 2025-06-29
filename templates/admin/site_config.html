@@ -1,0 +1,50 @@
+{% extends 'admin/master.html' %}
+{% block body %}
+  <h1>网站设置</h1>
+  <p>在这里修改你网站的全局信息。</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <form method="POST" enctype="multipart/form-data">
+    <div class="form-group">
+      <label>博客名称</label>
+      <input type="text" name="blog_name" class="form-control" value="{{ site_config.blog_name }}">
+    </div>
+    <hr>
+    <h4>首页头图设置</h4>
+    <div class="form-group">
+        <label>头图主标题</label>
+        <input type="text" name="hero_title" class="form-control" value="{{ site_config.hero_title }}">
+    </div>
+    <div class="form-group">
+        <label>头图副标题</label>
+        <input type="text" name="hero_subtitle" class="form-control" value="{{ site_config.hero_subtitle }}">
+    </div>
+    <div class="form-group">
+        <label>当前头图</label>
+        <div>
+          {% if site_config.hero_image %}
+            <img src="{{ url_for('uploaded_file', filename=site_config.hero_image) }}" style="max-width: 300px; margin-bottom: 10px;">
+          {% else %}
+            <p>暂未上传头图。</p>
+          {% endif %}
+        </div>
+        <label>上传新头图 (如果不想更换，请留空)</label>
+        <input type="file" name="hero_image" class="form-control">
+    </div>
+    <hr>
+    <h4>侧边栏“关于”简介</h4>
+    <div class="form-group">
+      <label>简介内容</label>
+      <textarea name="about_text" class="form-control" rows="4">{{ site_config.about_text }}</textarea>
+    </div>
+    <hr>
+    <button type="submit" class="btn btn-primary">保存设置</button>
+  </form>
+{% endblock %}

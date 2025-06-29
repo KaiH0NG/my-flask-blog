@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% if title %}{{ title }} - {% endif %}{{ site_config.blog_name }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/litera/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg bg-primary" data-bs-theme="dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('home') }}">{{ site_config.blog_name }}</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"><span class="navbar-toggler-icon"></span></button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('home') }}">首页</a></li>
+                </ul>
+                <ul class="navbar-nav">
+                    {% if current_user.is_authenticated %}
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.index') }}">后台管理</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('logout') }}">退出</a></li>
+                    {% else %}
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">登录</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <main class="container mt-4">
+        <div class="row g-5">
+            <div class="col-md-8">
+                {% block content %}{% endblock %}
+            </div>
+            <aside class="col-md-4">
+                <div class="position-sticky" style="top: 2rem;">
+                    <div class="p-4 mb-3 bg-body-tertiary rounded">
+                        <h4 class="fst-italic">关于 {{ site_config.blog_name }}</h4>
+                        <p class="mb-0">{{ site_config.about_text }}</p>
+                    </div>
+                    <div class="p-4">
+                        <h4 class="fst-italic">标签云</h4>
+                        {% for tag in all_tags %}
+                            <a href="{{ url_for('show_tag', tag_name=tag) }}" class="btn btn-outline-primary btn-sm m-1">{{ tag }}</a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </main>
+    <footer class="text-center text-muted py-4 mt-4 bg-light">
+        <p>&copy; 2025 {{ site_config.blog_name }}. All Rights Reserved.</p>
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>AOS.init({duration: 800, once: true});</script>
+</body>
+</html>

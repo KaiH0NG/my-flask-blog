@@ -1,0 +1,23 @@
+{% extends "layout.html" %}
+{% block content %}
+    <article class="blog-post">
+        <h2 class="blog-post-title mb-1">{{ post.title }}</h2>
+        <p class="blog-post-meta">
+            <i class="bi bi-calendar-event"></i> {{ post.date_posted.strftime('%Y年%m月%d日') }} by
+            <a href="#"><i class="bi bi-person"></i> {{ post.author }}</a>
+        </p>
+
+        <div class="post-content mt-4">
+            {{ post.content | md }}
+        </div>
+
+        {% if post.get_tags_list() %}
+            <div class="mt-4">
+                <strong>标签:</strong>
+                {% for tag in post.get_tags_list() %}
+                    <a href="{{ url_for('show_tag', tag_name=tag) }}" class="badge text-bg-primary text-decoration-none">{{ tag }}</a>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </article>
+{% endblock content %}
