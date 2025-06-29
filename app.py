@@ -1,4 +1,4 @@
-# app.py (V7.1 - 最终修正版)
+# app.py (V8 - 最终自我初始化版)
 
 import os
 from datetime import datetime
@@ -7,7 +7,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_admin import Admin, AdminIndexView, BaseView, expose
 from flask_admin.contrib.sqla import ModelView
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user
-from flask_bcrypt import Bcrypt  # <--- 就是这行！我把它加回来了
+from flask_bcrypt import Bcrypt
 import markdown
 from markupsafe import Markup
 from sqlalchemy import event
@@ -15,7 +15,7 @@ from sqlalchemy import event
 # --- 基础配置 ---
 app = Flask(__name__)
 
-# --- 数据库配置（重要更新）---
+# --- 数据库配置 ---
 database_url = os.environ.get('DATABASE_URL')
 if database_url:
     database_url = database_url.replace("postgres://", "postgresql://", 1)
@@ -40,13 +40,12 @@ login_manager.login_view = 'login'
 login_manager.login_message = '请先登录以访问此页面。'
 login_manager.login_message_category = 'info'
 
-# --- 手动创建 Markdown 过滤器 ---
 @app.template_filter('md')
 def markdown_to_html(text):
     html = markdown.markdown(text, extensions=['fenced_code', 'tables'])
     return Markup(html)
 
-# --- 数据库模型定义 ---
+# --- 数据库模型定义 (保持不变) ---
 class SiteConfig(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(50), unique=True, nullable=False)
@@ -68,12 +67,12 @@ class Post(db.Model):
     def __repr__(self): return f"Post('{self.title}')"
     def get_tags_list(self): return [tag.strip() for tag in self.tags.split(',')] if self.tags else []
 
-# --- Flask-Login 配置 ---
+# --- 其他所有代码都保持不变, 直到最后 ---
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# --- 网站配置函数 ---
 def get_site_config(key, default=None):
     config = SiteConfig.query.filter_by(key=key).first()
     return config.value if config else default
@@ -85,14 +84,12 @@ def inject_site_config():
     site_config['blog_name'] = get_site_config('blog_name', "Kai'blog")
     return {'site_config': site_config}
 
-# --- 后台管理配置 ---
 class SecureAdminView:
     def is_accessible(self): return current_user.is_authenticated
     def inaccessible_callback(self, name, **kwargs):
         flash('您没有权限访问后台管理页面，请先以管理员身份登录。', 'danger'); return redirect(url_for('login', next=request.url))
 
 class SecureModelView(SecureAdminView, ModelView): pass
-
 class SecureAdminIndexView(SecureAdminView, AdminIndexView): pass
 
 class SiteConfigView(SecureAdminView, BaseView):
@@ -123,7 +120,6 @@ admin = Admin(app, name="Kai'blog 后台", template_mode='bootstrap3', index_vie
 admin.add_view(SecureModelView(Post, db.session, name='文章管理'))
 admin.add_view(SiteConfigView(name='网站设置', endpoint='siteconfig'))
 
-# --- 认证及公共路由 ---
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated: return redirect(url_for('home'))
@@ -174,6 +170,16 @@ def insert_initial_values(*args, **kwargs):
     db.session.add(SiteConfig(key='about_text', value='这是关于我博客的默认简介，请在后台修改。'))
     db.session.commit()
 
-# 生产环境中 Gunicorn 会负责启动，所以不需要下面的代码块
-# if __name__ == '__main__':
-#     app.run(debug=True)
+# ===================== 新增的自我初始化代码 =====================
+with app.app_context():
+    db.create_all() # 如果表已存在，不会重复创建
+
+    # 检查 admin 用户是否已存在，如果不存在，则创建
+    if not User.query.filter_by(username='admin').first():
+        print("Creating default admin user...")
+        hashed_password = bcrypt.generate_password_hash('112233qq').decode('utf-8')
+        admin_user = User(username='admin', password_hash=hashed_password)
+        db.session.add(admin_user)
+        db.session.commit()
+        print("Default admin user created.")
+# ======================= 初始化代码结束 =======================
