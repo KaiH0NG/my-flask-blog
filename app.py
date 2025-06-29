@@ -1,4 +1,4 @@
-# app.py (V8 - 最终自我初始化版)
+# app.py (V9 - 真正最终版)
 
 import os
 from datetime import datetime
@@ -10,7 +10,6 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, curren
 from flask_bcrypt import Bcrypt
 import markdown
 from markupsafe import Markup
-from sqlalchemy import event
 
 # --- 基础配置 ---
 app = Flask(__name__)
@@ -45,7 +44,7 @@ def markdown_to_html(text):
     html = markdown.markdown(text, extensions=['fenced_code', 'tables'])
     return Markup(html)
 
-# --- 数据库模型定义 (保持不变) ---
+# --- 数据库模型定义 ---
 class SiteConfig(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(50), unique=True, nullable=False)
@@ -67,7 +66,8 @@ class Post(db.Model):
     def __repr__(self): return f"Post('{self.title}')"
     def get_tags_list(self): return [tag.strip() for tag in self.tags.split(',')] if self.tags else []
 
-# --- 其他所有代码都保持不变, 直到最后 ---
+# --- 我们删除了之前所有的其他代码，只保留到这里 ---
+# --- 下面是完整的、正确的路由和配置 ---
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -162,19 +162,24 @@ from flask import send_from_directory
 def uploaded_file(filename):
     return send_from_directory(upload_path, filename)
 
-@event.listens_for(SiteConfig.__table__, 'after_create')
-def insert_initial_values(*args, **kwargs):
-    db.session.add(SiteConfig(key='blog_name', value="Kai'blog"))
-    db.session.add(SiteConfig(key='hero_title', value='欢迎来到我的世界'))
-    db.session.add(SiteConfig(key='hero_subtitle', value='在这里，我记录思考、分享知识、探索未知。'))
-    db.session.add(SiteConfig(key='about_text', value='这是关于我博客的默认简介，请在后台修改。'))
-    db.session.commit()
+# --- 我们删除了原来的 @event.listens_for 事件监听器 ---
 
-# ===================== 新增的自我初始化代码 =====================
+# ===================== 全新的、更可靠的初始化代码 =====================
 with app.app_context():
-    db.create_all() # 如果表已存在，不会重复创建
+    db.create_all() # 1. 首先确保所有表都已创建
 
-    # 检查 admin 用户是否已存在，如果不存在，则创建
+    # 2. 检查默认设置是否已存在，如果不存在，则创建
+    if SiteConfig.query.count() == 0:
+        print("Populating initial site config...")
+        db.session.add_all([
+            SiteConfig(key='blog_name', value="Kai'blog"),
+            SiteConfig(key='hero_title', value='欢迎来到我的世界'),
+            SiteConfig(key='hero_subtitle', value='在这里，我记录思考、分享知识、探索未知。'),
+            SiteConfig(key='about_text', value='这是关于我博客的默认简介，请在后台修改。')
+        ])
+        db.session.commit()
+
+    # 3. 检查 admin 用户是否已存在，如果不存在，则创建
     if not User.query.filter_by(username='admin').first():
         print("Creating default admin user...")
         hashed_password = bcrypt.generate_password_hash('112233qq').decode('utf-8')
