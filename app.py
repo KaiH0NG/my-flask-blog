@@ -1,40 +1,38 @@
-# app.py (V7 - 生产部署版)
+# app.py (V7.1 - 最终修正版)
 
 import os
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
-# ... 其他 import 保持不变 ...
+from flask_admin import Admin, AdminIndexView, BaseView, expose
+from flask_admin.contrib.sqla import ModelView
+from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user
+from flask_bcrypt import Bcrypt  # <--- 就是这行！我把它加回来了
+import markdown
+from markupsafe import Markup
+from sqlalchemy import event
 
 # --- 基础配置 ---
 app = Flask(__name__)
 
 # --- 数据库配置（重要更新）---
-# 检查是否存在DATABASE_URL环境变量（Render会自动设置）
-# 如果存在，就使用PostgreSQL，否则回退到本地的SQLite
 database_url = os.environ.get('DATABASE_URL')
 if database_url:
-    # Render提供的PostgreSQL URL需要做一点小修改
     database_url = database_url.replace("postgres://", "postgresql://", 1)
 else:
-    # 本地开发环境
-    database_url = 'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'blog.db')
+    base_dir = os.path.abspath(os.path.dirname(__file__))
+    database_url = 'sqlite:///' + os.path.join(base_dir, 'blog.db')
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# SECRET_KEY也应该从环境变量获取，提供一个默认值以防万一
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a_default_secret_key_for_dev')
-
-# ... 后面的所有代码（初始化插件、模型定义、路由等）都保持原样，无需修改 ...
-# 我在这里省略了它们，你只需要修改上面的配置部分，或者直接用你现有的app.py代码，只改动上面的配置部分即可。
-# 为了保险起见，下面我还是贴出完整的代码。
 
 base_dir = os.path.abspath(os.path.dirname(__file__))
 upload_path = os.path.join(base_dir, 'static/uploads')
 if not os.path.exists(upload_path):
     os.makedirs(upload_path)
 
+# --- 初始化插件 ---
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
@@ -42,18 +40,13 @@ login_manager.login_view = 'login'
 login_manager.login_message = '请先登录以访问此页面。'
 login_manager.login_message_category = 'info'
 
-from flask_admin import Admin, AdminIndexView, BaseView, expose
-from flask_admin.contrib.sqla import ModelView
-from flask_login import UserMixin, login_user, logout_user, current_user
-import markdown
-from markupsafe import Markup
-from sqlalchemy import event
-
+# --- 手动创建 Markdown 过滤器 ---
 @app.template_filter('md')
 def markdown_to_html(text):
     html = markdown.markdown(text, extensions=['fenced_code', 'tables'])
     return Markup(html)
 
+# --- 数据库模型定义 ---
 class SiteConfig(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(50), unique=True, nullable=False)
@@ -75,10 +68,12 @@ class Post(db.Model):
     def __repr__(self): return f"Post('{self.title}')"
     def get_tags_list(self): return [tag.strip() for tag in self.tags.split(',')] if self.tags else []
 
+# --- Flask-Login 配置 ---
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+# --- 网站配置函数 ---
 def get_site_config(key, default=None):
     config = SiteConfig.query.filter_by(key=key).first()
     return config.value if config else default
@@ -90,12 +85,14 @@ def inject_site_config():
     site_config['blog_name'] = get_site_config('blog_name', "Kai'blog")
     return {'site_config': site_config}
 
+# --- 后台管理配置 ---
 class SecureAdminView:
     def is_accessible(self): return current_user.is_authenticated
     def inaccessible_callback(self, name, **kwargs):
         flash('您没有权限访问后台管理页面，请先以管理员身份登录。', 'danger'); return redirect(url_for('login', next=request.url))
 
 class SecureModelView(SecureAdminView, ModelView): pass
+
 class SecureAdminIndexView(SecureAdminView, AdminIndexView): pass
 
 class SiteConfigView(SecureAdminView, BaseView):
@@ -126,6 +123,7 @@ admin = Admin(app, name="Kai'blog 后台", template_mode='bootstrap3', index_vie
 admin.add_view(SecureModelView(Post, db.session, name='文章管理'))
 admin.add_view(SiteConfigView(name='网站设置', endpoint='siteconfig'))
 
+# --- 认证及公共路由 ---
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated: return redirect(url_for('home'))
@@ -176,5 +174,6 @@ def insert_initial_values(*args, **kwargs):
     db.session.add(SiteConfig(key='about_text', value='这是关于我博客的默认简介，请在后台修改。'))
     db.session.commit()
 
+# 生产环境中 Gunicorn 会负责启动，所以不需要下面的代码块
 # if __name__ == '__main__':
-#     app.run(debug=True) # 这行在生产环境中不再需要，Gunicorn会负责启动
+#     app.run(debug=True)
